@@ -7,7 +7,5 @@ Jinja2==3.1.2
 pymodbus==3.6.3
 pyserial==3.5
 
-termux-api==0.5
-
 # Optional utilities
 requests==2.31.0
