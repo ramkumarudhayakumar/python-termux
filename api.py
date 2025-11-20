@@ -1,78 +1,50 @@
-# api.py
 from flask import Flask, jsonify
 from modbus_termux import TermuxUSBModbus
-import os, sys, time
+import time
 
 app = Flask(__name__)
 
 SLAVE = 1
-HOLDING = 0    # 40001
-STATUS = 0     # 30001
+HOLD = 0
+STATUS = 0
 
-# Get FD from Termux
-if "USB_FD" not in os.environ:
-    print("❌ ERROR: No USB FD received.")
-    print("Run using: termux-usb -r /dev/bus/usb/001/<ID> -- python api.py")
-    sys.exit(1)
-
-fd = int(os.environ["USB_FD"])
-print("📁 Received USB FD:", fd)
-
-modbus = TermuxUSBModbus(fd)
+print("🔍 Initializing USB Modbus...")
+modbus = TermuxUSBModbus()
+print("✅ Modbus Ready")
 
 
-@app.route("/check/modbus/connection")
-def check_conn():
-    resp = modbus.read_register(SLAVE, HOLDING)
+@app.route("/check")
+def check():
+    resp = modbus.read_register(SLAVE, HOLD)
     if len(resp) < 7:
-        return jsonify({"success": False, "message": "No response"}), 400
+        return {"success": False, "msg": "No response"}, 400
 
     value = int.from_bytes(resp[3:5], "big")
-
-    return jsonify({"success": True, "value": value})
-
-
-@app.route("/modbus/status")
-def status():
-    resp = modbus.read_register(SLAVE, STATUS)
-    if len(resp) < 7:
-        return jsonify({"success": False}), 400
-
-    value = int.from_bytes(resp[3:5], "big")
-    return jsonify({"success": True, "status": value})
+    return {"success": True, "value": value}
 
 
-@app.route("/start/motor/<int:motor_id>", methods=["POST"])
-def start_motor(motor_id):
-    wr = modbus.write_register(SLAVE, HOLDING, motor_id)
+@app.route("/start/<int:motor>", methods=["POST"])
+def start(motor):
+    wr = modbus.write_register(SLAVE, HOLD, motor)
+
     if len(wr) < 8:
-        return jsonify({"success": False, "message": "Write failed"}), 400
+        return {"success": False, "msg": "Write failed"}, 400
 
     timeout = time.time() + 10
-
     while time.time() < timeout:
         resp = modbus.read_register(SLAVE, STATUS)
         if len(resp) < 7:
             continue
 
-        status = int.from_bytes(resp[3:5], "big")
+        st = int.from_bytes(resp[3:5], "big")
 
-        if status in [1, 2, 3]:
-            msg = {1: "Started", 2: "Processing", 3: "Completed"}[status]
-            return jsonify({"success": True, "status": status, "message": msg})
+        if st in [1, 2, 3]:
+            return {"success": True, "status": st}
 
-        if status in [26, 27, 28]:
-            err = {
-                26: "Emergency Stop",
-                27: "Elevator down limit fail",
-                28: "Elevator left limit fail"
-            }[status]
-            return jsonify({"success": False, "status": status, "message": err})
+        if st in [26, 27, 28]:
+            return {"success": False, "status": st}
 
-        time.sleep(0.2)
-
-    return jsonify({"success": False, "message": "Timeout"}), 408
+    return {"success": False, "msg": "Timeout"}, 408
 
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+app.run(host="0.0.0.0", port=5000)
