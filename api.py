@@ -1,8 +1,7 @@
+# api.py
 from flask import Flask, jsonify
 from modbus_termux import TermuxUSBModbus
-import sys
-import time
-import os
+import os, sys, time
 
 app = Flask(__name__)
 
@@ -10,21 +9,16 @@ SLAVE = 1
 HOLDING = 0    # 40001
 STATUS = 0     # 30001
 
+# Get FD from Termux
+if "USB_FD" not in os.environ:
+    print("❌ ERROR: No USB FD received.")
+    print("Run using: termux-usb -r /dev/bus/usb/001/<ID> -- python api.py")
+    sys.exit(1)
 
-# ------------------------------------------------
-# Get USB FD passed by Termux
-# ------------------------------------------------
-# if len(sys.argv) < 2:
-#     print("❌ ERROR: No USB FD received.")
-#     print("Run using:")
-#     print('  termux-usb -r "/dev/bus/usb/001/003" -- python api.py')
-#     sys.exit(1)
+fd = int(os.environ["USB_FD"])
+print("📁 Received USB FD:", fd)
 
-device_fd = "/dev/bus/usb/001/002"
-print("📁 Using device:", device_fd)
-
-modbus = TermuxUSBModbus(device_fd)
-# ------------------------------------------------
+modbus = TermuxUSBModbus(fd)
 
 
 @app.route("/check/modbus/connection")
@@ -35,11 +29,7 @@ def check_conn():
 
     value = int.from_bytes(resp[3:5], "big")
 
-    return jsonify({
-        "success": True,
-        "message": "Modbus connected",
-        "value": value
-    })
+    return jsonify({"success": True, "value": value})
 
 
 @app.route("/modbus/status")
@@ -54,12 +44,12 @@ def status():
 
 @app.route("/start/motor/<int:motor_id>", methods=["POST"])
 def start_motor(motor_id):
-
     wr = modbus.write_register(SLAVE, HOLDING, motor_id)
     if len(wr) < 8:
         return jsonify({"success": False, "message": "Write failed"}), 400
 
     timeout = time.time() + 10
+
     while time.time() < timeout:
         resp = modbus.read_register(SLAVE, STATUS)
         if len(resp) < 7:
