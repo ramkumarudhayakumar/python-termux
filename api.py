@@ -21,7 +21,8 @@ if len(sys.argv) < 2:
     sys.exit(1)
 
 fd_number = sys.argv[1]
-device_fd = f"/proc/self/fd/{fd_number}"
+# device_fd = f"/proc/self/fd/{}"
+device_fd = f"/proc/self/fd/dev/bus/usb/001/003"
 
 print("✅ USB FD received:", fd_number)
 print("📁 Using device:", device_fd)
