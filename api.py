@@ -20,11 +20,7 @@ STATUS = 0     # 30001
 #     print('  termux-usb -r "/dev/bus/usb/001/003" -- python api.py')
 #     sys.exit(1)
 
-fd_number = sys.argv[1]
-# device_fd = f"/proc/self/fd/{}"
-device_fd = f"/proc/self/fd/dev/bus/usb/001/003"
-
-print("✅ USB FD received:", fd_number)
+device_fd = "/dev/bus/usb/001/002"
 print("📁 Using device:", device_fd)
 
 modbus = TermuxUSBModbus(device_fd)
