@@ -14,11 +14,11 @@ STATUS = 0     # 30001
 # ------------------------------------------------
 # Get USB FD passed by Termux
 # ------------------------------------------------
-if len(sys.argv) < 2:
-    print("❌ ERROR: No USB FD received.")
-    print("Run using:")
-    print('  termux-usb -r "/dev/bus/usb/001/003" -- python api.py')
-    sys.exit(1)
+# if len(sys.argv) < 2:
+#     print("❌ ERROR: No USB FD received.")
+#     print("Run using:")
+#     print('  termux-usb -r "/dev/bus/usb/001/003" -- python api.py')
+#     sys.exit(1)
 
 fd_number = sys.argv[1]
 # device_fd = f"/proc/self/fd/{}"
