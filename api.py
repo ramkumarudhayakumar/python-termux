@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from modbus_termux import TermuxUSBModbus
 import sys
 import time
+import os
 
 app = Flask(__name__)
 
@@ -9,15 +10,30 @@ SLAVE = 1
 HOLDING = 0    # 40001
 STATUS = 0     # 30001
 
-# Get USB FD from termux-usb
-device_fd = f"/proc/self/fd/{sys.argv[1]}"
+
+# ------------------------------------------------
+# Get USB FD passed by Termux
+# ------------------------------------------------
+if len(sys.argv) < 2:
+    print("❌ ERROR: No USB FD received.")
+    print("Run using:")
+    print('  termux-usb -r "/dev/bus/usb/001/003" -- python api.py')
+    sys.exit(1)
+
+fd_number = sys.argv[1]
+device_fd = f"/proc/self/fd/{fd_number}"
+
+print("✅ USB FD received:", fd_number)
+print("📁 Using device:", device_fd)
+
 modbus = TermuxUSBModbus(device_fd)
+# ------------------------------------------------
 
 
 @app.route("/check/modbus/connection")
 def check_conn():
     resp = modbus.read_register(SLAVE, HOLDING)
-    if len(resp) < 8:
+    if len(resp) < 7:
         return jsonify({"success": False, "message": "No response"}), 400
 
     value = int.from_bytes(resp[3:5], "big")
@@ -32,7 +48,7 @@ def check_conn():
 @app.route("/modbus/status")
 def status():
     resp = modbus.read_register(SLAVE, STATUS)
-    if len(resp) < 8:
+    if len(resp) < 7:
         return jsonify({"success": False}), 400
 
     value = int.from_bytes(resp[3:5], "big")
@@ -42,16 +58,14 @@ def status():
 @app.route("/start/motor/<int:motor_id>", methods=["POST"])
 def start_motor(motor_id):
 
-    # 1. Write command
     wr = modbus.write_register(SLAVE, HOLDING, motor_id)
     if len(wr) < 8:
         return jsonify({"success": False, "message": "Write failed"}), 400
 
-    # 2. Read status loop
     timeout = time.time() + 10
     while time.time() < timeout:
         resp = modbus.read_register(SLAVE, STATUS)
-        if len(resp) < 8:
+        if len(resp) < 7:
             continue
 
         status = int.from_bytes(resp[3:5], "big")
@@ -63,8 +77,8 @@ def start_motor(motor_id):
         if status in [26, 27, 28]:
             err = {
                 26: "Emergency Stop",
-                27: "Elevator down limit",
-                28: "Elevator left limit"
+                27: "Elevator down limit fail",
+                28: "Elevator left limit fail"
             }[status]
             return jsonify({"success": False, "status": status, "message": err})
 
